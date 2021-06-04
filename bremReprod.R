@@ -59,6 +59,8 @@ pbmc.sal <- CreateAssayObject(counts = data$`Antibody Capture`)
 pbmcCombined <- CreateSeuratObject(counts = pbmc.rna)
 pbmcCombined[['SAL']] <- pbmc.sal # add an assay
 
+mat <- as.matrix(pbmc.sal@counts)
+
 cluster <- function(SALmatrix) {
   result <- vector("list", length = 7865)
   for(j in 1:ncol(SALmatrix)) {       # for-loop over cells
@@ -78,7 +80,7 @@ cluster <- function(SALmatrix) {
 ### NEED TO REPROD THE ARI AND AMI results. USE SAME PREFILTERING. 
 
 plot1 <- FeatureScatter(pbmcCombined, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
-pbmcCombined <- subset(pbmcCombined, subset = nFeature_RNA > 300 & nFeature_RNA < 5000)
+#pbmcCombined <- subset(pbmcCombined, subset = nFeature_RNA > 300 & nFeature_RNA < 5000)
 
 pbmc.rna <- NormalizeData(pbmcCombined@assays$RNA)
 pbmc.sal <- NormalizeData(pbmcCombined@assays$SAL)
@@ -105,18 +107,19 @@ rmatrix <- t(as.matrix(
                 ))
 
 smatrix <- t(as.matrix(pbmc.sal@counts))
-
+rmatrix 
 rmatrix <- t(rmatrix)
 smatrix <- t(smatrix)
 
 # max(rmatrix['JCHAIN', ])
 
 # seven cell types
-result <- BREMSC(smatrix, rmatrix, K=7, nChains=3, nMCMC=500)
+result2 <- BREMSC(smatrix, rmatrix, K=7, nChains=3, nMCMC=500)
+occurences <- table(result$clusterID)
 
 View(result$posteriorProb)
 
-save(result, file = "pbmcBREM.Rdata")
+save(result2, file = "pbmcBREM.Rdata")
 
 # remove the 20% of cells that did not map to one of the 7 clusters.
 
