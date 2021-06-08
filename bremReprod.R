@@ -34,9 +34,48 @@ plotMonoCyteCells <- function() {
   # use %in% instead bc different length vectors
   x <- log(remainingCells[4, ]) # cd14 
   y <- log(remainingCells[6, ]) # cd16
-  monocyte.plot <- plot(x, y, pch=20, xlab = 'log CD14', ylab = ' log CD16', main = 'Monocytes -')
-  abline(v=c(6,4), col=c("blue","blue"), lty = 2) # cd3
-  abline(h=c(6,5), col=c("red", "red"), lty= 2) # cd19
+  monocyte.plot <- plot(x, y, pch=20, xlab = 'log CD14', ylab = 'log CD16', main = 'Monocytes -')
+  abline(v=c(6,4), col=c("blue","blue"), lty = 2) 
+  abline(h=c(6,5), col=c("red", "red"), lty= 2) 
+  
+  cd14cells <- colnames(remainingCells)[which(x > 6 & y < 5)]
+  cd16.mat <- mat[, which(x < 4 & y > 6)]
+}
+
+plotNKCells <- function() {
+  x <- log(cd16.mat[7, ]) # cd 56
+  y <- log(cd16.mat[14, ]) # cd 127
+  View(cd16.mat)
+  
+  nk.plot <- plot(x, y, pch=20, xlab = 'log cd56', ylab = 'log cd127', main = 'NK and CD16 Monocytes')
+  abline(v=c(5,3.5), col=c("blue","blue"), lty = 2) 
+  abline(h=c(3,4), col=c("red","red"), lty = 2) # idk what the cutoff should be
+  
+  nkcells <- colnames(cd16.mat)[which(x > 5 & y < 3.5)]
+  cd16cells <- colnames(cd16.mat)[which(x < 3.5 & y > 4)]
+}
+
+plotDendtritic <- function() {
+  DC1 <- pbmc.rna@counts[c('CD1C','FCER1A'), ]
+  DC1.cells <- colnames(DC1)[which(DC1['CD1C', ] > 0 & DC1['FCER1A', ] > 0)] # take subset of col names
+  
+  cd14.neg <- colnames(mat[, which(log(mat[4, ]) < 6)]) # CD14 - cutoff is 6 
+  DC1.cells <- intersect(cd14.neg, DC1.cells)
+  
+  DC2 <- as.matrix(pbmc.rna@counts[c('CD1C','HLA-DRB1'), ])
+  DC2.cells <- colnames(DC2)[which(DC2['CD1C', ] > 0 & DC2["HLA-DRB1", ] > 0)]
+  cd14.pos <- colnames(mat[, which(log(mat[4, ]) > 6)])  
+  DC2.cells <- intersect(cd14.pos, DC2.cells)
+  
+  intersect(DC1.cells, DC2.cells) # should be zero
+  
+  pDC <- pbmc.rna@counts['IL3RA', ] # only grab the gene we care abt
+  pDC <- pDC[which(pDC > 0)] # this for now dk the plus cutoff
+  pDC.cells <- names(pDC)
+  
+  rm(DC1, DC2, pDC) # clean up a little
+  rm(cd14.neg, cd14.pos)
+  
 }
 
 if(!require(devtools)) install.packages("devtools")
@@ -107,23 +146,25 @@ rmatrix <- t(as.matrix(
                 ))
 
 smatrix <- t(as.matrix(pbmc.sal@counts))
-rmatrix 
+
 rmatrix <- t(rmatrix)
 smatrix <- t(smatrix)
 
 # max(rmatrix['JCHAIN', ])
 
 # seven cell types
-result2 <- BREMSC(smatrix, rmatrix, K=7, nChains=3, nMCMC=500)
+result3 <- BREMSC(smatrix, rmatrix, K=7, nChains=3, nMCMC=500)
 occurences <- table(result$clusterID)
 
 View(result$posteriorProb)
 
-save(result2, file = "pbmcBREM.Rdata")
+save(result3, file = "result3.Rdata")
 
 # remove the 20% of cells that did not map to one of the 7 clusters.
 
-plot(result$vecLogLik, type = "l", xlab = "MCMC Iterations", ylab = "Log likelihood")
+plot(result2$vecLogLik, type = "l", xlab = "MCMC Iterations", ylab = "Log likelihood")
+
+adjustedRandIndex(result2$clusterID, result3$clusterID)
 
 .test = function() {
   data("dataADT")
