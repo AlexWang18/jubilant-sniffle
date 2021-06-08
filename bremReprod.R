@@ -1,3 +1,14 @@
+length(bcells) + length(cd14cells) + length(cd16cells) + length(cd4tcells) + length(cd8tcells) + length(nkcells) + dendtritic 
+
+clusteredCells <- c(bcells, cd14cells, cd16cells, cd4tcells, cd8tcells, nkcells, DC1.cells, DC2.cells, pDC.cells)
+
+myls <- vector("list", length = 7865) # the clustering
+
+intersect(clusteredCells, colnames(pbmc.rna@counts))
+
+# For the clusters: bcells are 1, # cd4t are 2, cd8t are 3 
+# cd14 are 4, cd16 are 5,nk are 6, dendritic are 7
+
 plotBCells <- function(mat) {
   # top left is B cells
   x <- log(mat[1 , ])
@@ -11,6 +22,11 @@ plotBCells <- function(mat) {
   tcells <- colnames(mat)[which(x > 6.25 & y < 3)]
   tcells.mat <- mat[, which(x > 6.25 & y < 3)] # cd3+ and cd19- aka t cells
   bcell.mat <- mat[, which(log(mat[1, ]) < 4.5 & log(mat[8, ]) > 5.5)]
+  
+  for (c in bcells) {
+    myls[[count]] <- 1
+    count <- count+1 
+  }
 }
 
 
@@ -26,8 +42,15 @@ plotTCells <- function() {
   cd4tcells <- colnames(tcells.mat)[which(x > 7 & y < 5)]
   # CD 8+   I guess the remaining 400 ish cells dont get classified. consistent
   cd8tcells <- colnames(tcells.mat)[which(x < 4.5 & y > 6.5)]
-}
-
+  for (c in cd4tcells) {
+    myls[[count]] <- 2
+    count <- count+1 
+  }
+  for (c in cd8tcells) {
+    myls[[count]] <- 3
+    count <- count+1 
+  }
+  }
 plotMonoCyteCells <- function() {
   notNeeded <- c(bcells,cd4tcells,cd8tcells)
   remainingCells <- mat[, -which(colnames(mat) %in% notNeeded)] # take subset that are not in notNeeded
@@ -40,6 +63,11 @@ plotMonoCyteCells <- function() {
   
   cd14cells <- colnames(remainingCells)[which(x > 6 & y < 5)]
   cd16.mat <- mat[, which(x < 4 & y > 6)]
+  for (c in cd14cells) {
+    myls[[count]] <- 4
+    count <- count+1 
+  }
+  
 }
 
 plotNKCells <- function() {
@@ -53,6 +81,15 @@ plotNKCells <- function() {
   
   nkcells <- colnames(cd16.mat)[which(x > 5 & y < 3.5)]
   cd16cells <- colnames(cd16.mat)[which(x < 3.5 & y > 4)]
+  
+  for (c in cd16cells) {
+    myls[[count]] <- 5
+    count <- count+1 
+  }
+  for (c in nkcells) {
+    myls[[count]] <- 6
+    count <- count+1 
+  }
 }
 
 plotDendtritic <- function() {
@@ -76,6 +113,11 @@ plotDendtritic <- function() {
   rm(DC1, DC2, pDC) # clean up a little
   rm(cd14.neg, cd14.pos)
   
+  dendtritic <- length(DC1.cells) + length(DC2.cells) + length(pDC.cells)
+  for (c in 1:dendtritic) {
+    myls[[count]] <- 7
+    count <- count+1 
+  }
 }
 
 if(!require(devtools)) install.packages("devtools")
@@ -100,33 +142,17 @@ pbmcCombined[['SAL']] <- pbmc.sal # add an assay
 
 mat <- as.matrix(pbmc.sal@counts)
 
-cluster <- function(SALmatrix) {
-  result <- vector("list", length = 7865)
-  for(j in 1:ncol(SALmatrix)) {       # for-loop over cells
-    for(i in 1: nrow(SALmatrix)) {
-      if(data[i,j] > log(400)) {
-        result[[j]] <- 1  # B cell
-        break;
-      }
-      data1[i, j] <- data1[i , j] + 10 
-    }
-  }
-}
-
-## Need to cluster the cells based on cell surface markers
-# log(CD3+1) is < 4.XX AND log(CD19+1) is > 5.8X, it is B cell.
-
-### NEED TO REPROD THE ARI AND AMI results. USE SAME PREFILTERING. 
-
 plot1 <- FeatureScatter(pbmcCombined, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
-#pbmcCombined <- subset(pbmcCombined, subset = nFeature_RNA > 300 & nFeature_RNA < 5000)
+pbmcCombined <- subset(pbmcCombined, subset = colnames(pbmcCombined)%in%clusteredCells)
 
 pbmc.rna <- NormalizeData(pbmcCombined@assays$RNA)
 pbmc.sal <- NormalizeData(pbmcCombined@assays$SAL)
 
 # remove 3 protein markers from the ADT
 SALcounts <- GetAssayData(pbmc.sal)
-SALcounts <- SALcounts[-(which(rownames(SALcounts) %in% c('CD8a-TotalSeqB','CD16-TotalSeqB','CD127-TotalSeqB'))),]
+
+# select rows besides those listed
+SALcounts <- SALcounts[-(which(rownames(SALcounts) %in% c('CD8a-TotalSeqB','CD16-TotalSeqB','CD127-TotalSeqB'))),] 
 pbmc.sal <- subset(pbmc.sal, features = rownames(SALcounts))
 
 ### We identified seven cell types based on the biological knowledge of both protein and gene markers as the approximate
