@@ -7,29 +7,21 @@ intersect(cd14cells, cd16cells)
 intersect(stuff, stuff2)
 
 clusteredCells <- c(bcells, cd14cells, cd16cells, cd4tcells, cd8tcells, nkcells, DC1.cells, DC2.cells, pDC.cells)
-x <- list(bcells, cd14cells, cd16cells, cd4tcells, cd8tcells, nkcells, DC1.cells, DC2.cells, pDC.cells)
-length(unique(clusteredCells))
 
 myls <- vector("list", length = 7865) # our approx truth clustering.
-# need to reduce the size. should be 6554
+length(myls) <- length(unique(clusteredCells))
+myls <- unlist(myls) # convert to vector
 
-intersect(clusteredCells, colnames(pbmc.rna@counts))
+adjustedRandIndex(myls, result4$clusterID) # .68945
 
 # For the clusters: bcells are 1, # cd4t are 2, cd8t are 3 
 # cd14 are 4, cd16 are 5,nk are 6, dendritic are 7
+
+x <- list(bcells, cd14cells, cd16cells, cd4tcells, cd8tcells, nkcells, DC1.cells, DC2.cells, pDC.cells)
 un <- unlist(x)
-res <- Map(`[`, x, relist(!duplicated(un), skeleton = x))
-identical(res, res.list)
-#[1] TRUE
-removeDups <- function (x) { # does not work
-  for(k in 1:(length(x) - 1)) {
-    for (l in (k + 1):length(x)) {
-      to.remove <- which(x[[k]] %in% x[[l]])
-      x[[k]] <- x[[k]][-to.remove]
-    }
-  }
-  return(x)
-}
+res <- Map(`[`, x, relist(!duplicated(un), skeleton = x)) # Removes dups and preserves first
+
+identical(sum(lengths(res)), length(unique(clusteredCells)))  
 
 plotBCells <- function(mat) {
   # top left is B cells
@@ -45,7 +37,7 @@ plotBCells <- function(mat) {
   tcells.mat <- mat[, which(x > 6.25 & y < 3)] # cd3+ and cd19- aka t cells
   bcell.mat <- mat[, which(log(mat[1, ]) < 4.5 & log(mat[8, ]) > 5.5)]
   
-  for (c in bcells) { # take only clustered
+  for (c in res[[1]]) { # take only clustered
     myls[[count]] <- 1
     count <- count+1 
   }
@@ -64,11 +56,11 @@ plotTCells <- function() {
   cd4tcells <- colnames(tcells.mat)[which(x > 7 & y < 5)]
   # CD 8+   I guess the remaining 400 ish cells dont get classified. consistent
   cd8tcells <- colnames(tcells.mat)[which(x < 4.5 & y > 6.5)]
-  for (c in cd4tcells) {
+  for (c in res[[2]]) {
     myls[[count]] <- 2
     count <- count+1 
   }
-  for (c in cd8tcells) {
+  for (c in res[[3]]) {
     myls[[count]] <- 3
     count <- count+1 
   }
@@ -85,7 +77,7 @@ plotMonoCyteCells <- function() {
   
   cd14cells <- colnames(remainingCells)[which(x > 6 & y < 5)]
   cd16.mat <- mat[, which(x < 4 & y > 6)]
-  for (c in cd14cells) {
+  for (c in res[[4]]) {
     myls[[count]] <- 4
     count <- count+1 
   }
@@ -104,11 +96,11 @@ plotNKCells <- function() {
   nkcells <- colnames(cd16.mat)[which(x > 5 & y < 3.5)]
   cd16cells <- colnames(cd16.mat)[which(x < 3.5 & y > 4)]
   
-  for (c in cd16cells) {
+  for (c in res[[5]]) {
     myls[[count]] <- 5
     count <- count+1 
   }
-  for (c in nkcells) {
+  for (c in res[[6]]) {
     myls[[count]] <- 6
     count <- count+1 
   }
@@ -136,6 +128,7 @@ plotDendtritic <- function() {
   rm(cd14.neg, cd14.pos)
   
   dendtritic <- length(DC1.cells) + length(DC2.cells) + length(pDC.cells)
+  dendtritic <- length(res[[7]]) + length(res[[8]]) + length(res[[9]])
   for (c in 1:dendtritic) {
     myls[[count]] <- 7
     count <- count+1 
