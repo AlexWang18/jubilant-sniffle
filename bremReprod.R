@@ -1,13 +1,35 @@
 length(bcells) + length(cd14cells) + length(cd16cells) + length(cd4tcells) + length(cd8tcells) + length(nkcells) + dendtritic 
 
-clusteredCells <- c(bcells, cd14cells, cd16cells, cd4tcells, cd8tcells, nkcells, DC1.cells, DC2.cells, pDC.cells)
+stuff <- c(bcells, cd14cells, cd16cells)
+stuff2 <- c(cd4tcells, cd8tcells, nkcells)
 
-myls <- vector("list", length = 7865) # the clustering
+intersect(cd14cells, cd16cells)
+intersect(stuff, stuff2)
+
+clusteredCells <- c(bcells, cd14cells, cd16cells, cd4tcells, cd8tcells, nkcells, DC1.cells, DC2.cells, pDC.cells)
+x <- list(bcells, cd14cells, cd16cells, cd4tcells, cd8tcells, nkcells, DC1.cells, DC2.cells, pDC.cells)
+length(unique(clusteredCells))
+
+myls <- vector("list", length = 7865) # our approx truth clustering.
+# need to reduce the size. should be 6554
 
 intersect(clusteredCells, colnames(pbmc.rna@counts))
 
 # For the clusters: bcells are 1, # cd4t are 2, cd8t are 3 
 # cd14 are 4, cd16 are 5,nk are 6, dendritic are 7
+un <- unlist(x)
+res <- Map(`[`, x, relist(!duplicated(un), skeleton = x))
+identical(res, res.list)
+#[1] TRUE
+removeDups <- function (x) { # does not work
+  for(k in 1:(length(x) - 1)) {
+    for (l in (k + 1):length(x)) {
+      to.remove <- which(x[[k]] %in% x[[l]])
+      x[[k]] <- x[[k]][-to.remove]
+    }
+  }
+  return(x)
+}
 
 plotBCells <- function(mat) {
   # top left is B cells
@@ -23,7 +45,7 @@ plotBCells <- function(mat) {
   tcells.mat <- mat[, which(x > 6.25 & y < 3)] # cd3+ and cd19- aka t cells
   bcell.mat <- mat[, which(log(mat[1, ]) < 4.5 & log(mat[8, ]) > 5.5)]
   
-  for (c in bcells) {
+  for (c in bcells) { # take only clustered
     myls[[count]] <- 1
     count <- count+1 
   }
@@ -142,25 +164,20 @@ pbmcCombined[['SAL']] <- pbmc.sal # add an assay
 
 mat <- as.matrix(pbmc.sal@counts)
 
-plot1 <- FeatureScatter(pbmcCombined, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
-pbmcCombined <- subset(pbmcCombined, subset = colnames(pbmcCombined)%in%clusteredCells)
+# plot1 <- FeatureScatter(pbmcCombined, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+
+sub <- matrix(unique(clusteredCells), ncol=1) # take only classified cells
+pbmcCombined <- pbmcCombined[, sub[, 1]]
 
 pbmc.rna <- NormalizeData(pbmcCombined@assays$RNA)
 pbmc.sal <- NormalizeData(pbmcCombined@assays$SAL)
 
 # remove 3 protein markers from the ADT
 SALcounts <- GetAssayData(pbmc.sal)
-
 # select rows besides those listed
 SALcounts <- SALcounts[-(which(rownames(SALcounts) %in% c('CD8a-TotalSeqB','CD16-TotalSeqB','CD127-TotalSeqB'))),] 
 pbmc.sal <- subset(pbmc.sal, features = rownames(SALcounts))
-
-### We identified seven cell types based on the biological knowledge of both protein and gene markers as the approximate
-#truth, which is illustrated in Supplementary Figure S1. Examples of such cell type identification procedure are shown
-#in Supplementary Figure S2. Taken together, >80% of single cells can be assigned to a specific cell type. Cells with
-#uncertain cell types (not identified in the ground truth) were
-#removed from computing ARIs and AMIs.
-###
+rm(SALcounts)
 
 pbmc.rna <- FindVariableFeatures(pbmcCombined@assays$RNA, selection.method = "vst", nfeatures = 1000)
 pbmc.rna <- ScaleData(pbmc.rna)
@@ -170,21 +187,20 @@ var_genes <- VariableFeatures(pbmc.rna)
 rmatrix <- t(as.matrix(
                 GetAssayData(pbmc.rna)[var_genes,]
                 ))
+rm(var_genes)
 
 smatrix <- t(as.matrix(pbmc.sal@counts))
-
 rmatrix <- t(rmatrix)
 smatrix <- t(smatrix)
 
 # max(rmatrix['JCHAIN', ])
 
 # seven cell types
-result3 <- BREMSC(smatrix, rmatrix, K=7, nChains=3, nMCMC=500)
+result7 <- BREMSC(smatrix, rmatrix, K=7, nChains=3, nMCMC=500)
 occurences <- table(result$clusterID)
 
-View(result$posteriorProb)
 
-save(result3, file = "result3.Rdata")
+save(result7, file = "result7.Rdata")
 
 # remove the 20% of cells that did not map to one of the 7 clusters.
 
