@@ -12,17 +12,29 @@ myls <- vector("list", length = 7865) # our approx truth clustering.
 length(myls) <- length(unique(clusteredCells))
 myls <- unlist(myls) # convert to vector
 
-adjustedRandIndex(myls, result4$clusterID) # .68945
-
+ARI(myls, result4$clusterID) # .68945
+AMI(myls, result4$clusterID) # .6721
+ARI(myls, result7$clusterID) # .530
+AMI(myls, result7$clusterID) # .604
+ARI(myls, result9$clusterID) # .673
+AMI(myls, result9$clusterID) # .6625
+ARI(myls, result11$clusterID) # .692
+AMI(myls, result11$clusterID) # .6778
+ARI(myls, result12$clusterID) # .577
+AMI(myls, result12$clusterID) # .6475
+ARI(myls, result13$clusterID) # .6888
+# .65789 mean for ARI
+# mean out of those 5 was .63229
 # For the clusters: bcells are 1, # cd4t are 2, cd8t are 3 
 # cd14 are 4, cd16 are 5,nk are 6, dendritic are 7
 
-x <- list(bcells, cd14cells, cd16cells, cd4tcells, cd8tcells, nkcells, DC1.cells, DC2.cells, pDC.cells)
+combinedList <- list(bcells, cd14cells, cd16cells, cd4tcells, cd8tcells, nkcells, DC1.cells, DC2.cells, pDC.cells)
 un <- unlist(x)
-res <- Map(`[`, x, relist(!duplicated(un), skeleton = x)) # Removes dups and preserves first
+combinedList <- Map(`[`, x, relist(!duplicated(un), skeleton = x)) # Removes dups and preserves first
 
 identical(sum(lengths(res)), length(unique(clusteredCells)))  
 
+### APPROX TRUTH CALCS
 plotBCells <- function(mat) {
   # top left is B cells
   x <- log(mat[1 , ])
@@ -37,7 +49,7 @@ plotBCells <- function(mat) {
   tcells.mat <- mat[, which(x > 6.25 & y < 3)] # cd3+ and cd19- aka t cells
   bcell.mat <- mat[, which(log(mat[1, ]) < 4.5 & log(mat[8, ]) > 5.5)]
   
-  for (c in res[[1]]) { # take only clustered
+  for (c in combinedList[[1]]) { # take only clustered
     myls[[count]] <- 1
     count <- count+1 
   }
@@ -56,11 +68,11 @@ plotTCells <- function() {
   cd4tcells <- colnames(tcells.mat)[which(x > 7 & y < 5)]
   # CD 8+   I guess the remaining 400 ish cells dont get classified. consistent
   cd8tcells <- colnames(tcells.mat)[which(x < 4.5 & y > 6.5)]
-  for (c in res[[2]]) {
+  for (c in combinedList[[2]]) {
     myls[[count]] <- 2
     count <- count+1 
   }
-  for (c in res[[3]]) {
+  for (c in combinedList[[3]]) {
     myls[[count]] <- 3
     count <- count+1 
   }
@@ -77,11 +89,10 @@ plotMonoCyteCells <- function() {
   
   cd14cells <- colnames(remainingCells)[which(x > 6 & y < 5)]
   cd16.mat <- mat[, which(x < 4 & y > 6)]
-  for (c in res[[4]]) {
+  for (c in combinedList[[4]]) {
     myls[[count]] <- 4
     count <- count+1 
   }
-  
 }
 
 plotNKCells <- function() {
@@ -96,11 +107,11 @@ plotNKCells <- function() {
   nkcells <- colnames(cd16.mat)[which(x > 5 & y < 3.5)]
   cd16cells <- colnames(cd16.mat)[which(x < 3.5 & y > 4)]
   
-  for (c in res[[5]]) {
+  for (c in combinedList[[5]]) {
     myls[[count]] <- 5
     count <- count+1 
   }
-  for (c in res[[6]]) {
+  for (c in combinedList[[6]]) {
     myls[[count]] <- 6
     count <- count+1 
   }
@@ -110,7 +121,7 @@ plotDendtritic <- function() {
   DC1 <- pbmc.rna@counts[c('CD1C','FCER1A'), ]
   DC1.cells <- colnames(DC1)[which(DC1['CD1C', ] > 0 & DC1['FCER1A', ] > 0)] # take subset of col names
   
-  cd14.neg <- colnames(mat[, which(log(mat[4, ]) < 6)]) # CD14 - cutoff is 6 
+  cd14.neg <- colnames(mat[, which(log(mat[4, ]) < 6)]) # CD14- cutoff is 6 
   DC1.cells <- intersect(cd14.neg, DC1.cells)
   
   DC2 <- as.matrix(pbmc.rna@counts[c('CD1C','HLA-DRB1'), ])
@@ -121,20 +132,49 @@ plotDendtritic <- function() {
   intersect(DC1.cells, DC2.cells) # should be zero
   
   pDC <- pbmc.rna@counts['IL3RA', ] # only grab the gene we care abt
-  pDC <- pDC[which(pDC > 0)] # this for now dk the plus cutoff
+  pDC <- pDC[which(pDC > 0)] 
   pDC.cells <- names(pDC)
   
   rm(DC1, DC2, pDC) # clean up a little
   rm(cd14.neg, cd14.pos)
   
   dendtritic <- length(DC1.cells) + length(DC2.cells) + length(pDC.cells)
-  dendtritic <- length(res[[7]]) + length(res[[8]]) + length(res[[9]])
+  dendtritic <- length(combinedList[[7]]) + length(combinedList[[8]]) + length(combinedList[[9]])
   for (c in 1:dendtritic) {
     myls[[count]] <- 7
     count <- count+1 
   }
 }
 
+####
+
+#### FEATURE WEIGHT STUFF
+
+library(ggplot2)
+
+setwd("C:/Users/alexw/School/R-work/BREM")
+data <- Read10X("./filtered_feature_bc_matrix") 
+pbmc.rna <- CreateAssayObject(counts = data$`Gene Expression`)
+pbmc.sal <- CreateAssayObject(counts = data$`Antibody Capture`)
+
+mean(rmatrix[, 2])
+ggplot(as.data.frame(rmatrix, row.names = 'Genes', col.names='Cells'), 
+       aes(x=rmatrix[, 6100])) + 
+  geom_histogram(binwidth=1, color="black", fill="red") + 
+  labs(y = "Frequencies", title = "Top 1000 variable gene frequencies on a random barcode") +
+  geom_vline(aes(xintercept=mean(rmatrix[, 6100])),
+             color="blue", linetype="dashed", size=1)
+ggplot(as.data.frame(smatrix, row.names = 'Protein markers', col.names='Cells'), 
+       aes(x=smatrix[, 6101])) + 
+  geom_histogram(binwidth=20, color="black", fill="red") + 
+  labs(y = "Frequencies", title = "Top 1000 variable gene frequencies on a random barcode") +
+  geom_vline(aes(xintercept=mean(smatrix[, 6101])),
+             color="blue", linetype="dashed", size=1)
+
+qplot(pbmc.rna@counts[, 7800], geom = 'histogram')
+qplot(6000, data = as.data.frame(rmatrix), geom = 'histogram', binwidth=1,) + 
+  labs(y = "Frequencies", title = "Top 1000 variable gene frequencies on a random barcode")
+# why is all the frequency near 0? [, 2] shows strage stuff 
 if(!require(devtools)) install.packages("devtools")
 
 library("devtools")
@@ -146,9 +186,12 @@ library(SeuratDisk)
 library(BREMSC)
 library(factoextra)
 library(NbClust)
+library(mclust)
+library(aricode)
+library(matrixStats)
 setwd("C:/Users/alexw/School/R-work/BREM")
 
-data <- Read10X("./filtered_feature_bc_matrix") 
+ data <- Read10X("./filtered_feature_bc_matrix") 
 pbmc.rna <- CreateAssayObject(counts = data$`Gene Expression`)
 pbmc.sal <- CreateAssayObject(counts = data$`Antibody Capture`)
 
@@ -177,25 +220,25 @@ pbmc.rna <- ScaleData(pbmc.rna)
 rnaReduc <- RunPCA(pbmc.rna, features = VariableFeatures(object = pbmc.rna))
 
 var_genes <- VariableFeatures(pbmc.rna)
-rmatrix <- t(as.matrix(
+rmatrix <- as.matrix(
                 GetAssayData(pbmc.rna)[var_genes,]
-                ))
+                )
 rm(var_genes)
 
-smatrix <- t(as.matrix(pbmc.sal@counts))
+smatrix <- t(as.matrix(pbmc.sal@counts))                          
 rmatrix <- t(rmatrix)
 smatrix <- t(smatrix)
 
-# max(rmatrix['JCHAIN', ])
+rowRanges(rmatrix)
+
+#max(rmatrix['JCHAIN', ])
 
 # seven cell types
-result7 <- BREMSC(smatrix, rmatrix, K=7, nChains=3, nMCMC=500)
+result14 <- BREMSC(smatrix, rmatrix, K=7, nChains=3, nMCMC=500)
 occurences <- table(result$clusterID)
 
+save(result14, file = "result14.Rdata")
 
-save(result7, file = "result7.Rdata")
-
-# remove the 20% of cells that did not map to one of the 7 clusters.
 
 plot(result2$vecLogLik, type = "l", xlab = "MCMC Iterations", ylab = "Log likelihood")
 
